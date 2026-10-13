@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
+import {checkShadowCoverage} from './shadowing-coverage.mjs';
 import {restoreFixedTargets} from './shadowing-fixed-ledger.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
 export function postprocessShadow(raw){
@@ -14,5 +15,6 @@ export function postprocessShadow(raw){
  const dir=path.join(root,'private','shadow-postprocessed');fs.mkdirSync(dir,{recursive:true});
  const digest=createHash('sha256').update(JSON.stringify(raw)).digest('hex');
  fs.writeFileSync(path.join(dir,digest+'.json'),JSON.stringify(result));
- return restoreFixedTargets(result.grade,raw._shadowRequestLedger);
+ const grade=restoreFixedTargets(result.grade,raw._shadowRequestLedger);
+ return grade.scoreLedger?checkShadowCoverage(grade,raw._shadowRequestLedger):grade;
 }

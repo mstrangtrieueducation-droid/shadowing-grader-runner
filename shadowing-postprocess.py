@@ -44,7 +44,7 @@ def normalize(payload):
         raise ValueError('object required')
     fixed = payload.get('fixedLedger')
     if fixed is not None:
-        if fixed.get('version') != 'shadow-single-pass-fixed-ledger-v1':
+        if fixed.get('version') not in ('shadow-single-pass-fixed-ledger-v1', 'shadow-single-pass-explicit-coverage-v2'):
             raise ValueError('invalid fixed ledger version')
         for name in ('units', 'prosody', 'fluency'):
             block = grade.get('scoreLedger', {}).get(name)
@@ -168,12 +168,14 @@ def normalize(payload):
         groups = [('pronunciation', 'content'), ('intonation',), ('fluency',)]
         for section, types in zip(grade['sections'], groups):
             entries = [e for e in grade.get('evidence', []) if e.get('type') in types]
-            section['correction'] = '\n'.join(
+            original = section.get('correction', '')
+            rendered = '\n'.join(
                 f"{e.get('time', '')}: " +
                 (f"{e.get('word', '')} {e.get('ipa', '')} — " if e.get('word') else '') +
                 str(e.get('correction', '')) for e in entries
             )
-        changes.append('corrections_rendered_from_provider_evidence')
+            section['correction'] = original + ('\n' if original and rendered else '') + rendered
+        changes.append('corrections_preserved_and_evidence_appended')
     return {'grade': grade, 'changes': sorted(set(changes)), 'version': 'offline-format-v2'}
 
 

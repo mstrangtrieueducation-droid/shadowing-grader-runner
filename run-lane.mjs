@@ -6,10 +6,11 @@ const runTest=name=>{const r=spawnSync(process.execPath,[name],{cwd:root,env:pro
 async function main(){
  const mode=process.env.MODE||'audit';if(!['validate','audit','grade'].includes(mode))throw Error('MODE_INVALID');
  const publicTests=["shadowing-fixed-ledger-tests.mjs", "shadowing-unblock-tests.mjs","shadowing-coverage-tests.mjs"];runTest('automatic-authorization-tests.mjs');runTest('export-safeguards.mjs');for(const n of publicTests)runTest(n);
+ runTest('master-cross-class-sweep-tests.mjs');
  if(mode==='validate')return;
  if(process.env.GITHUB_ACTIONS==='true'&&(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_REF!=='refs/heads/'+required('RUNNER_DEFAULT_BRANCH')))throw Error('TRUSTED_REPOSITORY_AND_BRANCH_REQUIRED');
  if(mode==='grade'&&process.env.GRADING_ENABLED!=='true')throw Error('HANDOFF_NOT_ENABLED');
- if(mode==='grade')process.env.AUTOMATIC_GRADING_AUTHORIZED='true';
+ if(mode==='grade'){process.env.AUTOMATIC_GRADING_AUTHORIZED='true';process.env.MASTER_CROSS_CLASS_SWEEP='true';}
  const bytes=fs.readFileSync(path.join(root,'approved-policy.enc'));if(bytes.subarray(0,4).toString()!=='GB01')throw Error('PRIVATE_BUNDLE_SCHEMA_INVALID');
  const decipher=createDecipheriv('aes-256-gcm',Buffer.from(required('PRIVATE_BUNDLE_KEY'),'base64'),bytes.subarray(4,16));decipher.setAAD(Buffer.from(repository));decipher.setAuthTag(bytes.subarray(16,32));
  const bundle=JSON.parse(gunzipSync(Buffer.concat([decipher.update(bytes.subarray(32)),decipher.final()])).toString('utf8'));
@@ -32,9 +33,9 @@ async function main(){
   const counter=JSON.parse(fs.readFileSync(path.join(root,'private/last-run.json'),'utf8'));finished=counter.finished;requests=counter.paidCalls;
  }else{
   const {runShadowing}=await import('./shadowing-runner.mjs'),{buildContext}=await import('./grader_runner.mjs');const media=buildContext(config.clusters[0]),deadline=Date.now()+40*60000;
-  do{const r=runShadowing({google,config,key,root,deadline,emit:()=>{},maxJobs:Math.min(8,16-finished),maxApiCalls:Math.min(8,16-requests),prepareAudio:(job,m,save,end)=>{
+  do{const r=runShadowing({google,config,key,root,deadline,emit:()=>{},maxJobs:Infinity,maxApiCalls:Infinity,prepareAudio:(job,m,save,end)=>{
    const keyHash=media.hash_(key),model=config.shadowing.model;if(job.keyHash&&job.keyHash!==keyHash){if(job.rawId||job.gradeId)throw Error('SAVED_RESULT_MUST_NOT_BE_REGENERATED');media.bindPoolJob_(job,{keyHash,model});save();}else{job.keyHash=keyHash;job.generationModel=model;}return media.mediaPart_(job,m,save,end);
-  },cleanupAudio:job=>media.cleanupMedia_(job)});finished+=r.finished;requests+=r.paidCalls;if(!r.attempted||!r.paidCalls&&!r.finished)break;}while(Date.now()<deadline-120000&&finished<16&&requests<16);
+  },cleanupAudio:job=>media.cleanupMedia_(job)});finished+=r.finished;requests+=r.paidCalls;if(!r.attempted||!r.paidCalls&&!r.finished)break;}while(Date.now()<deadline-120000);
  }
  const report={lane,finished,providerGenerateCalls:requests};console.log(JSON.stringify(report));
  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${lane}: ${finished} results returned; ${requests} provider requests.\n`);

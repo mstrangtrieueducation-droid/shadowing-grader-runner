@@ -1,1 +1,1 @@
-export function batchDeliveryCheckpoint(batch,size=10){let next=size;return completed=>{if(!batch||completed<next)return false;batch.flush();next=(Math.floor(completed/size)+1)*size;return true;};}
+export function batchDeliveryCheckpoint(batch,size=10,emit=()=>{}){let next=size;return completed=>{if(!batch||completed<next)return false;try{batch.flush();}catch(e){emit({event:'BATCH_DELIVERY_DEFERRED',error:/^[A-Z0-9_]+$/.test(e.message||'')?e.message:'SHEET_WRITE_ERROR'});return false;}next=(Math.floor(completed/size)+1)*size;return true;};}

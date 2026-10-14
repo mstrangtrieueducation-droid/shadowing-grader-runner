@@ -3,7 +3,7 @@
 export function structuredShadowCoverage(schema,template){
  const out=structuredClone(schema);
  for(const name of ['units','prosody','fluency']){const count=template?.[name]?.length;if(!count)throw Error('SHADOW_COVERAGE_TARGETS_MISSING');out.properties.scoreLedger.properties[name].properties.outcomes={type:'array',items:{type:'object',properties:{startIndex:{type:'integer'},endIndex:{type:'integer'},verdict:{type:'string',enum:['C','I','M','U']}},required:['startIndex','endIndex','verdict'],additionalProperties:false},description:'Explicit contiguous inclusive ranges covering ALL '+count+' targets from0 to'+(count-1)+'. A range assigns its verdict to EVERY enclosed index. Sorted; no gaps or overlaps. Do not infer correct speech from an omitted error.'};}
- delete out.properties.scoreLedger.properties.phraseChecks.minItems;delete out.properties.scoreLedger.properties.phraseChecks.maxItems;out.properties.scoreLedger.properties.phraseChecks.description='Exactly '+template.prosody.length+' phrase checks, one for EACH supplied phrase index. Include missing phrases as [MISSING].';return out;
+ delete out.properties.scoreLedger.properties.phraseChecks.minItems;delete out.properties.scoreLedger.properties.phraseChecks.maxItems;out.properties.scoreLedger.properties.phraseChecks.description='Exactly '+template.prosody.length+' phrase checks, one for EACH supplied phrase index. Include missing phrases as [MISSING].';return compactShadowWireSchema(out);
 }
 export function normalizeCoverageArrays(text,template=null){
  let g;try{g=JSON.parse(text);}catch{return text;}let changed=false;
@@ -11,3 +11,6 @@ export function normalizeCoverageArrays(text,template=null){
  return changed?JSON.stringify(g):text;
 }
 export const rangeCoverageInstruction='Định dạng outcomes trong schema là các khoảng tường minh {startIndex,endIndex,verdict}, chỉ số0-based và endIndex tính cả điểm cuối. Một khoảng tuyên bố cùng verdict cho TẤT CẢ mục tiêu bên trong. Phải bao phủ đủ từ0 đến đúng chỉ số cuối đã cho, không có khoảng hở/chồng lấn. Chỉ gộp khoảng C khi đã thực sự nghe rõ và đối chiếu từng từ/cụm trong khoảng đó. Không suy mục không ghi lỗi là đúng. Giữ nguyên errors liên kết bằng chứng cho từng I/M, và phraseChecks đầy đủ từng cụm. Code chỉ bung đúng các verdict con đã cung cấp, không tự điền phần thiếu.';
+// Keep acoustic/reference validation in the existing local validators. Large
+// provider enum/cardinality constraints can reject the whole request with400.
+export function compactShadowWireSchema(schema){const out=structuredClone(schema);function visit(v){if(!v||typeof v!=='object')return;if(Array.isArray(v)){v.forEach(visit);return;}if(Array.isArray(v.enum)&&v.enum.length>32)delete v.enum;for(const k of ['minItems','maxItems','minProperties','maxProperties'])if(Number(v[k])>32)delete v[k];Object.values(v).forEach(visit);}visit(out);return out;}

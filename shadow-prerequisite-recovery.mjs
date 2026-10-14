@@ -39,7 +39,7 @@ export function applyReferenceOverrides(bank,overrides={}){
 }
 export function recoverUncalledPrerequisite(job,references,resolve){
  if(job.status!=='NEEDS_REVIEW'||hasShadowCall(job))return false;
- if(!['BAREM_LOCAL_TRANSCRIPT_MISSING','SHADOW_FIXED_LEDGER_SOURCE_MISSING','STUDENT_NOT_FOUND','STUDENT_AMBIGUOUS','DESTINATION_AMBIGUOUS','DESTINATION_COLUMN_NOT_FOUND','SHADOW_CANONICAL_AUDIO_SOURCE_MISSING'].includes(job.error))return false;
+ if(!['BAREM_LOCAL_TRANSCRIPT_MISSING','SHADOW_FIXED_LEDGER_SOURCE_MISSING','STUDENT_NOT_FOUND','STUDENT_AMBIGUOUS','DESTINATION_AMBIGUOUS','DESTINATION_COLUMN_NOT_FOUND','SHADOW_CANONICAL_AUDIO_SOURCE_MISSING','AUDIO_EXTRACTION_FAILED','SHADOW_CANONICAL_AUDIO_TOO_LARGE'].includes(job.error))return false;
  if(!references[job.source.code]?.transcript?.trim())return false;
  const target=resolve(job.source);job.recoveryHistory=(job.recoveryHistory||[]).concat([{at:new Date().toISOString(),reason:PREREQUISITE_RECOVERY,previousError:job.error,newCalls:0}]);
  job.status='READY';job.error='';job.nextAt=0;job.prerequisiteRecoveryVersion=PREREQUISITE_RECOVERY;job.manualReviewRequired=false;return target;

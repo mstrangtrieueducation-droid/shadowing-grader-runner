@@ -39,7 +39,7 @@ jobs:
         if: env.MODE == 'validate'
         run: node run-lane.mjs
       - name: Install official media tools
-        if: env.MODE != 'validate'
+        if: env.MODE != 'validate' && env.MODE != 'repair-scores'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg

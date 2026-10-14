@@ -1,12 +1,13 @@
-// Provider-constrained arrays avoid asking a model to count hundreds of repeated
-// characters in a single string. Joining them later changes representation only.
+// Explicit contiguous ranges avoid large minItems constraints rejected by the
+// provider. Expansion preserves exactly the verdict the model assigns each item.
 export function structuredShadowCoverage(schema,template){
  const out=structuredClone(schema);
- for(const name of ['units','prosody','fluency']){const count=template?.[name]?.length;if(!count)throw Error('SHADOW_COVERAGE_TARGETS_MISSING');out.properties.scoreLedger.properties[name].properties.outcomes={type:'array',items:{type:'string',enum:['C','I','M','U']},minItems:count,maxItems:count,description:'Exactly '+count+' single-character acoustic verdicts, one per supplied target in order. No omitted targets.'};}
- out.properties.scoreLedger.properties.phraseChecks.minItems=template.prosody.length;out.properties.scoreLedger.properties.phraseChecks.maxItems=template.prosody.length;return out;
+ for(const name of ['units','prosody','fluency']){const count=template?.[name]?.length;if(!count)throw Error('SHADOW_COVERAGE_TARGETS_MISSING');out.properties.scoreLedger.properties[name].properties.outcomes={type:'array',items:{type:'object',properties:{startIndex:{type:'integer'},endIndex:{type:'integer'},verdict:{type:'string',enum:['C','I','M','U']}},required:['startIndex','endIndex','verdict'],additionalProperties:false},description:'Explicit contiguous inclusive ranges covering ALL '+count+' targets from0 to'+(count-1)+'. A range assigns its verdict to EVERY enclosed index. Sorted; no gaps or overlaps. Do not infer correct speech from an omitted error.'};}
+ delete out.properties.scoreLedger.properties.phraseChecks.minItems;delete out.properties.scoreLedger.properties.phraseChecks.maxItems;out.properties.scoreLedger.properties.phraseChecks.description='Exactly '+template.prosody.length+' phrase checks, one for EACH supplied phrase index. Include missing phrases as [MISSING].';return out;
 }
-export function normalizeCoverageArrays(text){
+export function normalizeCoverageArrays(text,template=null){
  let g;try{g=JSON.parse(text);}catch{return text;}let changed=false;
- for(const name of ['units','prosody','fluency']){const block=g.scoreLedger?.[name];if(Array.isArray(block?.outcomes)&&block.outcomes.every(v=>typeof v==='string'&&/^[CIMU]$/.test(v))){block.outcomes=block.outcomes.join('');changed=true;}}
+ for(const name of ['units','prosody','fluency']){const block=g.scoreLedger?.[name],values=block?.outcomes;if(!Array.isArray(values))continue;if(values.every(v=>typeof v==='string'&&/^[CIMU]$/.test(v))){block.outcomes=values.join('');changed=true;continue;}const expected=template?.[name]?.length;if(!expected||!values.length)continue;let cursor=0,expanded='',valid=true;for(const v of values){if(!v||!Number.isInteger(v.startIndex)||!Number.isInteger(v.endIndex)||v.startIndex!==cursor||v.endIndex<v.startIndex||v.endIndex>=expected||!/^[CIMU]$/.test(v.verdict)){valid=false;break;}expanded+=v.verdict.repeat(v.endIndex-v.startIndex+1);cursor=v.endIndex+1;}if(valid&&cursor===expected){block.outcomes=expanded;changed=true;}}
  return changed?JSON.stringify(g):text;
 }
+export const rangeCoverageInstruction='Định dạng outcomes trong schema là các khoảng tường minh {startIndex,endIndex,verdict}, chỉ số0-based và endIndex tính cả điểm cuối. Một khoảng tuyên bố cùng verdict cho TẤT CẢ mục tiêu bên trong. Phải bao phủ đủ từ0 đến đúng chỉ số cuối đã cho, không có khoảng hở/chồng lấn. Chỉ gộp khoảng C khi đã thực sự nghe rõ và đối chiếu từng từ/cụm trong khoảng đó. Không suy mục không ghi lỗi là đúng. Giữ nguyên errors liên kết bằng chứng cho từng I/M, và phraseChecks đầy đủ từng cụm. Code chỉ bung đúng các verdict con đã cung cấp, không tự điền phần thiếu.';

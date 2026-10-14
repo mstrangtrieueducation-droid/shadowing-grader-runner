@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {acceptShadowScore,directShadowSchema,directShadowSystem} from './shadow-score-passthrough.mjs';
+const prose='Con chú ý âm /s/ trong books; chưa có mốc giây.';
+const g={assessable:true,overallPercent:76.5,sections:[{score:0,correction:prose}],evidence:[{ipa:'',time:''}],scoreQuality:{status:'unscored'}};
+assert.equal(acceptShadowScore(g).scoreCalculation.percent,76.5);assert.equal(g.sections[0].correction,prose);
+const old={sections:[{score:0},{score:0},{score:0}],scoreLedger:Object.fromEntries(['units','prosody','fluency'].map(n=>[n,{targets:['a','b','c','d'],outcomes:'CCMU',errors:[],unclearIndexes:[3]}]))};
+assert.equal(acceptShadowScore(old,{legacyLedger:true}).scoreCalculation.percent,50);
+assert.equal(acceptShadowScore({sections:[]}).scoreCalculation,undefined);
+const s=directShadowSchema({properties:{scoreLedger:{},evidence:{items:{properties:{word:{enum:['a']}}}}},required:['scoreLedger']});assert(!s.properties.scoreLedger);assert(s.required.includes('overallPercent'));
+const p=directShadowSystem('Điền scoreLedger để code tính điểm. score tạm để 0, không tự chọn 90/95.');assert(!p.includes('score tạm để 0'));
+console.log('Direct provider scores survive missing evidence; legacy supplied verdicts reused without new inference or API.');

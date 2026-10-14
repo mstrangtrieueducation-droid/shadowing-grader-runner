@@ -4,10 +4,10 @@ const root=path.dirname(fileURLToPath(import.meta.url)),lane='shadowing',reposit
 const required=n=>{const v=process.env[n]?.trim();if(!v)throw Error('MISSING_'+n);return v;};
 const runTest=name=>{const r=spawnSync(process.execPath,[name],{cwd:root,env:process.env,encoding:'utf8',windowsHide:true,maxBuffer:10*1024*1024});if(r.status){fs.mkdirSync(path.join(root,'private'),{recursive:true});fs.writeFileSync(path.join(root,'private','test-failure.txt'),r.stdout+'\n'+r.stderr);throw Error('SAFEGUARD_TEST_FAILED');}console.log(JSON.stringify({test:name,passed:true,providerCalls:0}));};
 async function main(){
- const mode=process.env.MODE||'audit';if(!['validate','audit','grade'].includes(mode))throw Error('MODE_INVALID');
+ const mode=process.env.MODE||'audit';if(!['validate','audit','grade','repair-scores'].includes(mode))throw Error('MODE_INVALID');
  const publicTests=["shadowing-fixed-ledger-tests.mjs", "shadowing-unblock-tests.mjs","shadowing-coverage-tests.mjs"];runTest('automatic-authorization-tests.mjs');runTest('export-safeguards.mjs');for(const n of publicTests)runTest(n);
  runTest('master-cross-class-sweep-tests.mjs');runTest('master-first-snapshot-tests.mjs');runTest('student-speech-evidence-tests.mjs');runTest('master-submission-scope-tests.mjs');runTest('saved-speaking-consistency-tests.mjs');runTest('shadow-parent-prose-tests.mjs');runTest('saved-json-whitespace-tests.mjs');
- runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');
+ runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');
  if(mode==='validate')return;
  if(process.env.GITHUB_ACTIONS==='true'&&(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_REF!=='refs/heads/'+required('RUNNER_DEFAULT_BRANCH')))throw Error('TRUSTED_REPOSITORY_AND_BRANCH_REQUIRED');
  if(mode==='grade'&&process.env.GRADING_ENABLED!=='true')throw Error('HANDOFF_NOT_ENABLED');
@@ -15,7 +15,9 @@ async function main(){
  const bytes=fs.readFileSync(path.join(root,'approved-policy.enc'));if(bytes.subarray(0,4).toString()!=='GB01')throw Error('PRIVATE_BUNDLE_SCHEMA_INVALID');
  const decipher=createDecipheriv('aes-256-gcm',Buffer.from(required('PRIVATE_BUNDLE_KEY'),'base64'),bytes.subarray(4,16));decipher.setAAD(Buffer.from(repository));decipher.setAuthTag(bytes.subarray(16,32));
  const bundle=JSON.parse(gunzipSync(Buffer.concat([decipher.update(bytes.subarray(32)),decipher.final()])).toString('utf8'));
- const config=bundle.config,sa=JSON.parse(required('GOOGLE_SERVICE_ACCOUNT_JSON')),key=required('GEMINI_KEY_'+lane.toUpperCase());
+ const config=bundle.config,sa=JSON.parse(required('GOOGLE_SERVICE_ACCOUNT_JSON'));
+ if(mode==='repair-scores'){if(bundle.lane!==lane||bundle.schema!=='private-grading-bundle-v1'||config.approvedRepository!==repository||config.serviceAccount!==sa.client_email)throw Error('PRIVATE_BINDING_INVALID');if(process.env.GRADING_ENABLED!=='true')throw Error('HANDOFF_NOT_ENABLED');const {Google}=await import('./google-adapter.mjs'),{repairSavedShadowScores}=await import('./shadow-saved-score-repair.mjs');repairSavedShadowScores(new Google(sa),config,required('REPAIR_IDS').split(',').map(x=>x.trim()).filter(Boolean));return;}
+ const key=required('GEMINI_KEY_'+lane.toUpperCase());
  if(bundle.lane!==lane||bundle.schema!=='private-grading-bundle-v1'||config.approvedRepository!==repository||config.serviceAccount!==sa.client_email)throw Error('PRIVATE_BINDING_INVALID');
  fs.mkdirSync(path.join(root,'private'),{recursive:true,mode:0o700});
  process.env.RUNNER_CONFIG=JSON.stringify(config);process.env.GOOGLE_CREDENTIALS=JSON.stringify(sa);process.env.GEMINI_API_KEY=key;process.env.KIDS_NATIVE_CONFIG=JSON.stringify(config.nativeConfig);process.env.RUNNER_SHEET_BATCH='0';process.env.RUNNER_HOST='github';if(bundle.nonStudentAudioRegistry)fs.writeFileSync(path.join(root,'private/non-student-audio-registry.json'),JSON.stringify(bundle.nonStudentAudioRegistry));

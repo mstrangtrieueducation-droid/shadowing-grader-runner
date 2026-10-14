@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {checkShadowCoverage} from './shadowing-coverage.mjs';
 import {restoreFixedTargets} from './shadowing-fixed-ledger.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
-export function postprocessShadow(raw){
+export function postprocessShadow(raw,{blockScores=true}={}){
  const originalText=(raw.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought&&typeof p.text==='string').map(p=>p.text).join('');
  const text=normalizeCoverageArrays(savedJsonSectionObjects(savedJsonWhitespace(originalText)),raw._shadowRequestLedger);
  const python=process.env.PYTHON_PATH||(process.platform==='win32'?path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe'):'python3');
@@ -20,5 +20,5 @@ export function postprocessShadow(raw){
  const digest=createHash('sha256').update(JSON.stringify(raw)).digest('hex');
  fs.writeFileSync(path.join(dir,digest+'.json'),JSON.stringify(result));
  const grade=restoreFixedTargets(result.grade,raw._shadowRequestLedger);
- return grade.scoreLedger?checkShadowCoverage(grade,raw._shadowRequestLedger):grade;
+ return blockScores&&grade.scoreLedger?checkShadowCoverage(grade,raw._shadowRequestLedger):grade;
 }

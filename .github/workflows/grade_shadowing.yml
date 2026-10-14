@@ -5,8 +5,12 @@ on:
       mode:
         description: Validate, read private queues, or grade eligible submissions
         type: choice
-        options: [validate, audit, grade]
+        options: [validate, audit, grade, repair-scores]
         default: grade
+      repair_ids:
+        description: Saved job IDs to repair without calling Gemini
+        type: string
+        default: ""
   schedule:
     - cron: '6,16,26,36,46,56 * * * *'
 permissions:
@@ -21,6 +25,7 @@ jobs:
     timeout-minutes: 55
     env:
       MODE: ${{ inputs.mode || 'grade' }}
+      REPAIR_IDS: ${{ inputs.repair_ids || '' }}
       GRADING_ENABLED: ${{ vars.GRADING_ENABLED }}
       RUNNER_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
     steps:

@@ -1,4 +1,5 @@
 import {PEDAGOGY_INSTRUCTION,pedagogicSpans} from './pedagogical-language.mjs';
+import {sourceInMasterScope,masterScopeAllowsJob} from './master-submission-scope.mjs';
 import {masterSweepEnabled} from './master-cross-class-sweep.mjs';
 import {prepareNativeSweep} from './master-native-sweep.mjs';
 import {beginMasterDestinationBatch} from './master-destination-batch.mjs';
@@ -46,13 +47,13 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  const reference=guide=>localTextReference(references[guide.lesson.id],guide.lesson);
  try{
  if(masterSweepEnabled()&&!audit)destinationBatch=beginMasterDestinationBatch(g,sweepClasses,root,{emit});
- const source=allSource(),latest=latestRows(source),jobs=load(),known=new Set(jobs.map(x=>x.job.id));
+ const source=allSource().filter(s=>!masterSweepEnabled()||sourceInMasterScope(s)),latest=latestRows(source),jobs=load(),known=new Set(jobs.map(x=>x.job.id));
  if(audit){emit({event:'SHADOW_AUDIT',submissions:source.length,latest:latest.size,old:source.length-latest.size,counts:jobs.reduce((a,x)=>(a[x.job.status]=(a[x.job.status]||0)+1,a),{})});return {finished,paidCalls};}
  // Recheck system prerequisites for held, ungenerated work on every scan.
  // Successful saved model responses are never discarded or billed again here.
  const recoveryReferences=new Map();
  for(const x of jobs){
-  const job=x.job;
+  const job=x.job;if(!masterScopeAllowsJob(job))continue;
   if(onlySignature&&!(Array.isArray(onlySignature)?onlySignature.includes(job.id):job.id===onlySignature))continue;
   if(!job.rawId&&(job.generationAttempt?.calls===0||job.error==='SHADOW_GEMINI_HTTP_400')&&latest.get(identity(job.source))?.signature===job.source.signature){
    for(const old of [...(job.failedAttempts||[])].reverse()){
@@ -87,7 +88,7 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  if(masterSweep)try{masterSweep.publish();}catch(e){emit({event:'MASTER_SWEEP_REPORT_ERROR',error:e.message});}
  const cachedAudio=j=>{const m=j.media?.[0];if(!m)return false;const tag=m.id+'-'+createHash('sha256').update(String(m.modified)).digest('hex').slice(0,10);return ['.m4a','.flac','.shadow.mp3'].some(ext=>fs.existsSync(path.join(root,'private','cache',tag+ext)));};
  const approval=nativeApprovalSession(g,config,binding,tab,load(),save);
- const queue=load().filter(x=>approval.approved.has(x.job.id)&&(!onlySignature||(Array.isArray(onlySignature)?onlySignature.includes(x.job.id):x.job.id===onlySignature))&&['QUEUED','READY','WAITING_MEDIA','RETRY','GENERATED','GENERATING'].includes(x.job.status)&&!(x.job.nextAt>Date.now())).sort((a,b)=>Number(!!b.job.rawId)-Number(!!a.job.rawId)||Number(!!b.job.generationAttempt&&!b.job.rawId&&b.job.generationAttempt.calls===0)-Number(!!a.job.generationAttempt&&!a.job.rawId&&a.job.generationAttempt.calls===0)||Number(cachedAudio(b.job))-Number(cachedAudio(a.job))||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Date.parse(b.job.source.time)-Date.parse(a.job.source.time));
+ const queue=load().filter(x=>masterScopeAllowsJob(x.job)&&approval.approved.has(x.job.id)&&(!onlySignature||(Array.isArray(onlySignature)?onlySignature.includes(x.job.id):x.job.id===onlySignature))&&['QUEUED','READY','WAITING_MEDIA','RETRY','GENERATED','GENERATING'].includes(x.job.status)&&!(x.job.nextAt>Date.now())).sort((a,b)=>Number(!!b.job.rawId)-Number(!!a.job.rawId)||Number(!!b.job.generationAttempt&&!b.job.rawId&&b.job.generationAttempt.calls===0)-Number(!!a.job.generationAttempt&&!a.job.rawId&&a.job.generationAttempt.calls===0)||Number(cachedAudio(b.job))-Number(cachedAudio(a.job))||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Date.parse(b.job.source.time)-Date.parse(a.job.source.time));
  for(const item of queue){if(Date.now()>deadline-90000||finished>=maxJobs||paidCalls>=maxApiCalls||attempted>=Math.max(6,maxJobs*3))break;attempted++;const {job,row}=item;const persist=()=>save(job,row);emit({event:'SHADOW_JOB_STARTED',student:job.source.name,className:job.source.className,code:job.source.code});
   try{
    approvalOverwrite=!masterSweepEnabled()&&!job.teacherApproval?.automatic;if(nativeOldFile(job,load(),g)){nativeResubmission(job,target(job.source).cell,persist,approval,OLD_FILE_NOTICE,'COMPLETED_NEEDS_RESUBMISSION');finished++;continue;}

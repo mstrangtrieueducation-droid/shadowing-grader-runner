@@ -1,0 +1,4 @@
+import assert from 'node:assert/strict';import {savedJsonSectionObjects} from './saved-json-section-objects.mjs';
+const g={sections:[{label:'Phát âm, âm đuôi & trọng âm',score:62,correction:'Con đọc dessert /dɪˈzɜːt/ ở 00:08.'},{label:'Ngữ điệu & ngắt nghỉ theo mẫu',score:65,correction:'Con luyện đọc liền cụm.'},{label:'Tốc độ nói & độ trôi chảy',score:55,correction:'Con còn thiếu đoạn cuối 04:40.'}]},valid=JSON.stringify(g),bad=valid.replaceAll(',{"label":',',' );
+assert.deepEqual(JSON.parse(savedJsonSectionObjects(bad)),g);assert.equal(savedJsonSectionObjects(valid),valid);const quotation=JSON.stringify({correction:'},"Ngữ điệu & ngắt nghỉ theo mẫu","score":65'});assert.equal(savedJsonSectionObjects(quotation),quotation);assert.equal(savedJsonSectionObjects('{"sections":['),'{"sections":[');
+console.log('PASS omitted section object syntax recovered; every teacher character, score, IPA and timestamp preserved; quotations and incomplete responses unchanged.');

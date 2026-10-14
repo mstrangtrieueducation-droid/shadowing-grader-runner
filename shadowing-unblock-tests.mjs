@@ -29,12 +29,12 @@ test('BBC download failure uses verified transcript and memoizes fallback',()=>{
  assert.throws(()=>select({...doc,transcript:''},{id:'other',videoId:doc.videoId},fail),/TIMEOUT/);
  assert.throws(()=>select(doc,{id:'other',videoId:'wrong'},fail),/REFERENCE_CHANGED/);
 });
-test('explicit cache recovery archives old usage and allows exactly one fresh call',()=>{
+test('historical cache reset preserves usage but latest teacher single-call lock prevents another call',()=>{
  const j={rawId:'old',usage:{totalTokenCount:100},generateRequests:1,cacheResetAuthorized:RECOVERY_AUTHORIZATION};
  assert.equal(MAX_RETRIES,0);assert.throws(()=>assertShadowSingleCall(j),/ONE_CALL_LIMIT/);
  assert.equal(resetAuthorizedCache(j,Error('SHADOW_GRADE_INVALID')),true);
  assert.equal(j.failedAttempts[0].rawId,'old');assert.equal(j.failedAttempts[0].usage.totalTokenCount,100);
- assertShadowSingleCall(j);j.generationAttempt.calls++;
+ assert.throws(()=>assertShadowSingleCall(j),/ONE_CALL_LIMIT/);j.generationAttempt.calls++;
  assert.throws(()=>assertShadowSingleCall(j),/ONE_CALL_LIMIT/);
  j.rawId='new';assert.equal(resetAuthorizedCache(j,Error('SHADOW_GRADE_INVALID')),false);
 });

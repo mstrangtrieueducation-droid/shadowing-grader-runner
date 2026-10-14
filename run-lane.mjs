@@ -1,4 +1,5 @@
 import './hosted-bootstrap.mjs';
+import {applyReferenceOverrides} from './shadow-prerequisite-recovery.mjs';
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createDecipheriv} from 'node:crypto';import {gunzipSync} from 'node:zlib';import {spawnSync} from 'node:child_process';
 const root=path.dirname(fileURLToPath(import.meta.url)),lane='shadowing',repository='mstrangtrieueducation-droid/'+lane+'-grader-runner';
 const required=n=>{const v=process.env[n]?.trim();if(!v)throw Error('MISSING_'+n);return v;};
@@ -7,7 +8,7 @@ async function main(){
  const mode=process.env.MODE||'audit';if(!['validate','audit','grade','repair-scores'].includes(mode))throw Error('MODE_INVALID');
  const publicTests=["shadowing-fixed-ledger-tests.mjs", "shadowing-unblock-tests.mjs","shadowing-coverage-tests.mjs"];runTest('automatic-authorization-tests.mjs');runTest('export-safeguards.mjs');for(const n of publicTests)runTest(n);
  runTest('master-cross-class-sweep-tests.mjs');runTest('master-first-snapshot-tests.mjs');runTest('student-speech-evidence-tests.mjs');runTest('master-submission-scope-tests.mjs');runTest('saved-speaking-consistency-tests.mjs');runTest('shadow-parent-prose-tests.mjs');runTest('saved-json-whitespace-tests.mjs');
- runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');
+ runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');runTest('shadow-prerequisite-recovery-tests.mjs');
  if(mode==='validate')return;
  if(process.env.GITHUB_ACTIONS==='true'&&(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_REF!=='refs/heads/'+required('RUNNER_DEFAULT_BRANCH')))throw Error('TRUSTED_REPOSITORY_AND_BRANCH_REQUIRED');
  if(mode==='grade'&&process.env.GRADING_ENABLED!=='true')throw Error('HANDOFF_NOT_ENABLED');
@@ -22,7 +23,7 @@ async function main(){
  fs.mkdirSync(path.join(root,'private'),{recursive:true,mode:0o700});
  process.env.RUNNER_CONFIG=JSON.stringify(config);process.env.GOOGLE_CREDENTIALS=JSON.stringify(sa);process.env.GEMINI_API_KEY=key;process.env.KIDS_NATIVE_CONFIG=JSON.stringify(config.nativeConfig);process.env.RUNNER_SHEET_BATCH='0';process.env.RUNNER_HOST='github';if(bundle.nonStudentAudioRegistry)fs.writeFileSync(path.join(root,'private/non-student-audio-registry.json'),JSON.stringify(bundle.nonStudentAudioRegistry));
  if(lane==='kids'){const catalog=path.join(root,'migration/kids-barem-20261012/catalog.approved.json');fs.mkdirSync(path.dirname(catalog),{recursive:true});fs.writeFileSync(catalog,JSON.stringify(bundle.barem),{mode:0o600});process.env.MASTER_BAREM_CATALOG=catalog;runTest('kids-barem-recovery-tests.mjs');}
- else{fs.writeFileSync(path.join(root,'shadowing-references.json'),JSON.stringify(bundle.references),{mode:0o600});runTest('shadowing-tests.mjs');}
+ else{fs.writeFileSync(path.join(root,'shadowing-references.json'),JSON.stringify(applyReferenceOverrides(bundle.references,bundle.referenceOverrides)),{mode:0o600});runTest('shadowing-tests.mjs');}
  const {Google,request}=await import('./google-adapter.mjs');const google=new Google(sa),model=lane==='kids'?config.kids.model:config.shadowing.model;
  const metadata=request({url:'https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model),headers:{'x-goog-api-key':key},timeoutMs:30000});if(metadata.getResponseCode()!==200)throw Error('MODEL_PREFLIGHT_FAILED');
  if(mode==='audit'){

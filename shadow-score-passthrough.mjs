@@ -25,3 +25,4 @@ export function directShadowSystem(system){return system.replace(/scoreLedger\.u
 export const passShadowGrade=g=>g;
 export const passShadowReference=g=>g;
 export const passShadowAccent=g=>g;
+export function directShadowSegments(segments,grade){const n=grade.scoreCalculation?.percent;if(n===undefined)return segments;return segments.map(s=>({...s,text:s.text.replace(/Chất lượng: đạt(?: khoảng)?\s+\d+(?:[.,]\d+)?%/g,'Chất lượng: đạt '+n+'%')}));}

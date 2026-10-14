@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import {legacyPlaceholderScore,restoreLegacyPlaceholder,replaceLegacyZeroLine} from './shadow-legacy-placeholder.mjs';
+const grade=()=>({assessable:true,sections:[{score:0},{score:0},{score:0}],scoreLedger:{complete:true,...Object.fromEntries(['units','prosody','fluency'].map(n=>[n,{targets:['a','b','c','d'],errors:[],unclearIndexes:[]}]))}});
+const g=grade();g.scoreLedger.units.errors=[{unitIndex:1,evidenceIndexes:[]}];assert.equal(legacyPlaceholderScore(g).percent,88);assert.equal(restoreLegacyPlaceholder(g).scoreCalculation.percent,88);
+for(const mutate of [g=>g.overallPercent=0,g=>g.assessable=false,g=>g.scoreLedger.complete=false,g=>g.sections[0].score=60,g=>g.scoreLedger.units.errors=[{unitIndex:99}],g=>delete g.scoreLedger.units.targets]){const v=grade();mutate(v);assert.equal(legacyPlaceholderScore(v),null);}
+const before='— NHẬN XÉT GV —\nChất lượng: đạt 0%.\n⚠️ Cần theo dõi\nLời chữa /s/ ở 00:05.';const r=replaceLegacyZeroLine(before,{percent:88});assert.equal(r.after,'— NHẬN XÉT GV —\nChất lượng: đạt 88%.\nLời chữa /s/ ở 00:05.');assert.equal(r.after.slice(r.mapIndex(before.indexOf('Lời chữa'))),'Lời chữa /s/ ở 00:05.');assert.equal(replaceLegacyZeroLine(before.replace('0%','60%'),{percent:88}),null);
+console.log('Legacy zero placeholders recovered from saved completed ledgers; genuine zero, incomplete data, feedback and provider scores protected.');

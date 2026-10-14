@@ -1,4 +1,5 @@
 import {DIRECT_SCORE_POLICY,directShadowSchema,directShadowSystem,directShadowSegments,acceptShadowScore,passShadowGrade as validateGrade,passShadowReference as validateReferenceEvidence,passShadowAccent as validateAccentEvidence} from './shadow-score-passthrough.mjs';
+import {restoreLegacyPlaceholder} from './shadow-legacy-placeholder.mjs';
 import {shadowParentSegments} from './shadow-parent-prose.mjs';
 import {structuredShadowCoverage,rangeCoverageInstruction} from './structured-shadow-coverage.mjs';
 import {batchDeliveryCheckpoint} from './batch-delivery-checkpoint.mjs';
@@ -128,4 +129,4 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  emit({event:'SHADOW_COMPLETE',finished,paidCalls,attempted});return {finished,paidCalls,attempted};
  }finally{try{try{destinationBatch?.flush();try{masterSweep?.publish();}catch(e){emit({event:'MASTER_SWEEP_REPORT_ERROR',error:e.message});}}finally{destinationBatch?.close();}}finally{if(lease)lease.release();}}
 }
-function parseRaw(raw){const grade=acceptShadowScore(postprocessShadow(raw,{blockScores:false}),{legacyLedger:!!raw._shadowRequestLedger});if(typeof grade?.assessable!=='boolean')throw Error('SHADOW_GRADE_INVALID');return grade;}
+function parseRaw(raw){const grade=restoreLegacyPlaceholder(acceptShadowScore(postprocessShadow(raw,{blockScores:false}),{legacyLedger:!!raw._shadowRequestLedger}));if(typeof grade?.assessable!=='boolean')throw Error('SHADOW_GRADE_INVALID');return grade;}

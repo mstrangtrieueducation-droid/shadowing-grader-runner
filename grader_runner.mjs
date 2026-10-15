@@ -1,3 +1,5 @@
+import {SCREEN_GROUNDING_VERSION} from './screen-grounding.mjs';
+import {extractScreenFrames,screenFramesReady} from './phonics-frame.mjs';
 import {beginSheetBatch,replaySheetBatches} from './kids-sheet-batch.mjs';
 import {installContentRouting} from './kids-content-routing.mjs';
 import {nextDrainWait} from './runner-policies.mjs';
@@ -217,8 +219,9 @@ function prepareMedia(c,job,m,save,deadline,originalMedia){
  // Record why visual evidence was retained/discarded, for both student and reference.
  job.mediaDecision=mediaDecision(job.route.kind);
  const audioFirst=(['audio','audio_frame'].includes(job.mediaDecision.mode)||m.mime.startsWith('audio/'))&&/^(audio|video)\//.test(m.mime);
+ const needsScreenFrame=!m.isReference&&m.mime.startsWith('video/');
  const needsFrame=job.mediaDecision.mode==='audio_frame'&&!m.isReference&&m.mime.startsWith('video/');
- const frameAvailable=()=>!needsFrame||!!(m.runnerPdfFrame?.path&&fs.existsSync(m.runnerPdfFrame.path));
+ const frameAvailable=()=>(!needsFrame||!!(m.runnerPdfFrame?.path&&fs.existsSync(m.runnerPdfFrame.path)))&&(!needsScreenFrame||screenFramesReady(m));
  const proxyVideo=!audioFirst&&!m.isReference&&m.mime.startsWith('video/');
  if(audioFirst&&!m.isReference)job.runnerAudioOnly=true;
  // Retire pre-policy video uploads for audio tasks; their payload is never sent.
@@ -255,6 +258,11 @@ function prepareMedia(c,job,m,save,deadline,originalMedia){
   }
   m.runnerDownloadBytes=offset;save();if(offset<m.size)return null;fs.renameSync(partial,original);
  }
+ if(needsScreenFrame&&!screenFramesReady(m)){
+  const duration=Number(google.fileMeta(m.id).videoMediaMetadata?.durationMillis)/1000;
+  m.runnerScreenFrames=extractScreenFrames({ffmpeg,input:original,output:path.join(cache,tag+'.scope.jpg'),durationSeconds:duration});
+  m.screenGroundingCapture={version:SCREEN_GROUNDING_VERSION,sourceId:m.id,modified:m.modified,status:m.runnerScreenFrames.length?'available':'unavailable'};save();
+ }
  if(needsFrame&&!frameAvailable()){
   const output=path.join(cache,tag+'.context.jpg'),duration=Number(google.fileMeta(m.id).videoMediaMetadata?.durationMillis)/1000;
   m.runnerPdfFrame=extractPhonicsFrame({ffmpeg,input:original,output,durationSeconds:duration});save();
@@ -262,7 +270,7 @@ function prepareMedia(c,job,m,save,deadline,originalMedia){
  if(audioFirst){
  if(file===original){mediaCache.sweep(Math.min(m.size,256*1024*1024));const extracted=extractStudentAudio({ffmpeg,input:original,audio,flac});file=extracted.file;mime=extracted.mime;m.audioSelection=extracted.selection;}
   if(file===original){file=audio;mime='audio/mp4';}
-  job.runnerAudioOnly=!needsFrame;m.runnerAudio={mime,bytes:fs.statSync(file).size,originalBytes:m.size,copy:mime==='audio/mp4'};
+  job.runnerAudioOnly=!needsFrame&&!m.runnerScreenFrames?.length;m.runnerAudio={mime,bytes:fs.statSync(file).size,originalBytes:m.size,copy:mime==='audio/mp4'};
   mediaCache.dropOriginal(tag);
  }
  if(proxyVideo){

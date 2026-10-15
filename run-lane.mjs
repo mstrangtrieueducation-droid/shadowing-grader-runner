@@ -11,6 +11,7 @@ async function main(){
  runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');runTest('shadow-prerequisite-recovery-tests.mjs');runTest('shadow-audio-recovery-tests.mjs');
  runTest('shadow-legacy-placeholder-tests.mjs');
  runTest('continuous-dispatcher-tests.mjs');
+ runTest('screen-grounding-tests.mjs');
  if(mode==='validate')return;
  if(process.env.GITHUB_ACTIONS==='true'&&(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_REF!=='refs/heads/'+required('RUNNER_DEFAULT_BRANCH')))throw Error('TRUSTED_REPOSITORY_AND_BRANCH_REQUIRED');
  if(mode==='grade'&&process.env.GRADING_ENABLED!=='true')throw Error('HANDOFF_NOT_ENABLED');

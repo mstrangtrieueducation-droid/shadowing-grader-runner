@@ -12,8 +12,6 @@ on:
         description: Saved job IDs to repair without calling Gemini
         type: string
         default: ""
-  schedule:
-    - cron: '6,16,26,36,46,56 * * * *'
 permissions:
   contents: read
 concurrency:

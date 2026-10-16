@@ -1,8 +1,7 @@
-import {createHash} from 'node:crypto';
+import {hash} from './shadowing-policies.mjs';
 import {isIeltsClass,ieltsAddressText,IELTS_ADDRESS_VERSION} from './ielts-address-policy.mjs';
 import {sourceInMasterScope} from './master-submission-scope.mjs';
 export const ADDRESS_REPAIR_JOB='2e978b4c6b0fd681d76eab11ee654445b34673e2f34d9f8f4bec00403ef297da';
-const hash=s=>createHash('sha256').update(s).digest('hex');
 export function addressedRichCell(before,runs=[]){
  const ordered=[...runs].sort((a,b)=>a.startIndex-b.startIndex);if(!ordered.length||ordered[0].startIndex!==0)ordered.unshift({startIndex:0,format:{}});
  let text='';const changed=[];

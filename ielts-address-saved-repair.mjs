@@ -4,9 +4,9 @@ import {sourceInMasterScope} from './master-submission-scope.mjs';
 export const ADDRESS_REPAIR_JOB='2e978b4c6b0fd681d76eab11ee654445b34673e2f34d9f8f4bec00403ef297da';
 export function addressedRichCell(before,runs=[]){
  const ordered=[...runs].sort((a,b)=>a.startIndex-b.startIndex);if(!ordered.length||ordered[0].startIndex!==0)ordered.unshift({startIndex:0,format:{}});
- let text='';const changed=[];
- for(let i=0;i<ordered.length;i++){const r=ordered[i],part=ieltsAddressText(before.slice(r.startIndex,ordered[i+1]?.startIndex??before.length));if(part){changed.push({...r,startIndex:text.length});text+=part;}}
- if(text!==ieltsAddressText(before))throw Error('ADDRESS_REPAIR_RUN_BOUNDARY');
+ const edits=[],text=ieltsAddressText(before,e=>edits.push(e)),changed=[];
+ const position=at=>{let delta=0;for(const e of edits){if(at>=e.end)delta+=e.text.length-(e.end-e.start);else if(at>e.start)return e.start+delta+Math.min(at-e.start,e.text.length);else break;}return at+delta;};
+ for(const run of ordered){const startIndex=position(run.startIndex);if(startIndex>=text.length)continue;const mapped={...run,startIndex};if(changed.at(-1)?.startIndex===startIndex)changed[changed.length-1]=mapped;else changed.push(mapped);}
  return {text,runs:changed};
 }
 export function repairManagedIeltsAddress({g,binding,items,save,isLatest,emit=()=>{}}){

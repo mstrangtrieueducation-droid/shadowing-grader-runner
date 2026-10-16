@@ -14,6 +14,7 @@ async function main(){
  runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');runTest('shadow-prerequisite-recovery-tests.mjs');runTest('shadow-audio-recovery-tests.mjs');
  runTest('shadow-legacy-placeholder-tests.mjs');
  runTest('continuous-dispatcher-tests.mjs');
+ runTest('provider-retry-policy-tests.mjs');
  runTest('screen-grounding-tests.mjs');
  runTest('shadow-billing-recovery-tests.mjs');
  if(mode==='validate')return;

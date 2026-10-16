@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {ieltsAddressText,ieltsAddressInstruction,ieltsAddressSegments,withIeltsNoticeAddress} from './ielts-address-policy.mjs';
+import {criteria,richSegments} from './shadowing-policies.mjs';
+import {directShadowSegments} from './shadow-score-passthrough.mjs';
+import {shadowParentSegments} from './shadow-parent-prose.mjs';
+import {pedagogicSpans} from './pedagogical-language.mjs';
+const grade={assessable:true,reason:'',scoreCalculation:{percent:84.5},sections:criteria.map(label=>({label,score:85,praise:'Con đọc rõ.',correction:'Tuy nhiên con cần luyện lại. Ở 00:18, con đọc rain /reɪn/ thành "mail". Con giữ âm /n/.'})),evidence:[{time:'00:18',word:'rain',ipa:'/reɪn/',observed:'con đọc thành "mail"',correction:'Con giữ âm /n/.'}]};
+const raw=JSON.stringify(grade),base=pedagogicSpans(shadowParentSegments(directShadowSegments(richSegments(grade,'2026-10-16T00:00:00Z'),grade)));
+const output=ieltsAddressSegments(base,'IELTS 49'),text=output.map(s=>s.text).join('');
+assert.ok(text.includes('Em đọc rõ.')&&text.includes('em cần')&&text.includes('Em giữ âm /n/.'));
+for(const expected of ['84.5%','00:18','rain','/reɪn/','"mail"'])assert.ok(text.includes(expected),expected);
+assert.deepEqual(output.map(s=>s.tone),base.map(s=>s.tone));assert.equal(JSON.stringify(grade),raw);assert.equal(ieltsAddressSegments(base,'FIGHTER 8'),base);assert.equal(ieltsAddressSegments(base,'KIDS 7'),base);
+assert.equal(ieltsAddressInstruction('FIGHTER 8'),'');assert.ok(ieltsAddressInstruction('IELTS51').includes('em/Em'));
+assert.equal(ieltsAddressText('Con chú ý con số, con người và "con artist".'),'Em chú ý con số, con người và "con artist".');
+const calls=[],write=withIeltsNoticeAddress((...args)=>calls.push(args),'Con kiểm tra micro.');const job={source:{className:'IELTS 49'},rawId:'immutable',generateRequests:1},before=structuredClone(job);
+write(job,'cell','save','session');assert.equal(calls[0][4],'Em kiểm tra micro.');write(job,'cell','save','session','Con đọc lại.','COMPLETED_UNASSESSABLE');assert.equal(calls[1][4],'Em đọc lại.');assert.equal(calls[1][5],'COMPLETED_UNASSESSABLE');write({source:{className:'FIGHTER 8'}},'cell','save','session');assert.equal(calls[2][4],'Con kiểm tra micro.');assert.deepEqual(job,before);
+console.log('PASS IELTS Shadowing Em in prompt, full rich-segment pipeline and notices; raw, scores, IPA, time, tones and non-IELTS classes preserved; zero provider calls.');

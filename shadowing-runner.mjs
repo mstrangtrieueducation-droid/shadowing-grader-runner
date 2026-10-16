@@ -1,5 +1,6 @@
 import {screenFrameParts} from './phonics-frame.mjs';
 import {withShadowReceiptProtection} from './shadow-receipt-feedback.mjs';
+import {repairManagedIeltsAddress} from './ielts-address-saved-repair.mjs';
 import {ieltsAddressInstruction,ieltsAddressSegments,withIeltsNoticeAddress} from './ielts-address-policy.mjs';
 import {billingRecoveryChildren} from './shadow-billing-recovery.mjs';
 import {prepareShadowAudioWithRecovery} from './shadow-audio-recovery.mjs';
@@ -70,6 +71,7 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  if(masterSweepEnabled())for(const child of billingRecoveryChildren(load().map(x=>x.job),{isLatest:s=>latest.get(identity(s))?.signature===s.signature,emptyTarget:s=>!!target(s,true)})){save(child);emit({event:'SHADOW_BILLING_REJECTION_RECOVERY_ENQUEUED',id:child.id,parentId:child.billingRejectionRecovery.parentId,providerCalls:0});}
  if(masterSweepEnabled())masterSweep=prepareNativeSweep({google:g,lane:'shadowing',controlId:binding.controlId,classes:sweepClasses,sources:[...latest.values()],jobs:load(),save,readyStatus:'GENERATED',hasFeedback:shadowHasFeedback,emit,resolve:s=>{const cls=sweepClasses.find(x=>x.className===s.className);if(!cls)throw Error('SHADOW_CLASS_NOT_CONFIGURED');const b=g.book(cls.spreadsheetId),sheet=b.getSheetByName(cls.sheetName);if(!sheet)throw Error('DESTINATION_TAB_NOT_FOUND');g.preloadSource(cls.spreadsheetId,sheet.meta.properties.gridProperties.columnCount,[sheet.getName()]);const loc=resolveShadowTarget(sheet.getDataRange().getDisplayValues(),sheet.meta.merges,s.className.startsWith('IELTS')?5:Math.max(3,sheet.meta.properties.gridProperties.frozenRowCount||3),s);return {cell:sheet.getRange(loc.row,loc.col)};}});
  if(plannedRows.size){g.api('https://sheets.googleapis.com/v4/spreadsheets/'+binding.controlId+'/values:batchUpdate','POST',{valueInputOption:'RAW',data:[...plannedRows].map(([row,values])=>({range:quote(tab)+'!A'+row+':M'+row,values:[values]}))});book.cache.clear();}planning=false;
+ emit({event:'IELTS_ADDRESS_SAVED_REPAIR',...repairManagedIeltsAddress({g,binding,items:load(),save,isLatest:s=>latest.get(identity(s))?.signature===s.signature,emit})});
  if(masterSweep)try{masterSweep.publish();}catch(e){emit({event:'MASTER_SWEEP_REPORT_ERROR',error:e.message});}
  const recoveryJobs=load();
  // Recheck system prerequisites for held, ungenerated work on every scan.

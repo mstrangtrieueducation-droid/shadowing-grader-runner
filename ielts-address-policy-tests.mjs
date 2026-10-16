@@ -7,6 +7,7 @@ import {pedagogicSpans} from './pedagogical-language.mjs';
 const grade={assessable:true,reason:'',scoreCalculation:{percent:84.5},sections:criteria.map(label=>({label,score:85,praise:'Con đọc rõ.',correction:'Tuy nhiên con cần luyện lại. Ở 00:18, con đọc rain /reɪn/ thành "mail". Con giữ âm /n/.'})),evidence:[{time:'00:18',word:'rain',ipa:'/reɪn/',observed:'con đọc thành "mail"',correction:'Con giữ âm /n/.'}]};
 const raw=JSON.stringify(grade),base=pedagogicSpans(shadowParentSegments(directShadowSegments(richSegments(grade,'2026-10-16T00:00:00Z'),grade)));
 const output=ieltsAddressSegments(base,'IELTS 49'),text=output.map(s=>s.text).join('');
+assert.ok(text.includes('chuẩn xác hơn, em chú ý'));assert.ok(!text.includes('chuẩn xác hơn, con chú ý'));
 assert.ok(text.includes('Em đọc rõ.')&&text.includes('em cần')&&text.includes('Em giữ âm /n/.'));
 for(const expected of ['84.5%','00:18','rain','/reɪn/','"mail"'])assert.ok(text.includes(expected),expected);
 assert.deepEqual(output.map(s=>s.tone),base.map(s=>s.tone));assert.equal(JSON.stringify(grade),raw);assert.equal(ieltsAddressSegments(base,'FIGHTER 8'),base);assert.equal(ieltsAddressSegments(base,'KIDS 7'),base);

@@ -14,6 +14,7 @@ async function main(){
  runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');runTest('shadow-prerequisite-recovery-tests.mjs');runTest('shadow-audio-recovery-tests.mjs');
  runTest('shadow-legacy-placeholder-tests.mjs');
  runTest('continuous-dispatcher-tests.mjs');
+ runTest('universal-media-tests.mjs');
  runTest('provider-retry-policy-tests.mjs');
  runTest('screen-grounding-tests.mjs');
  runTest('shadow-billing-recovery-tests.mjs');
@@ -32,7 +33,7 @@ async function main(){
  process.env.RUNNER_CONFIG=JSON.stringify(config);process.env.GOOGLE_CREDENTIALS=JSON.stringify(sa);process.env.GEMINI_API_KEY=key;process.env.KIDS_NATIVE_CONFIG=JSON.stringify(config.nativeConfig);process.env.RUNNER_SHEET_BATCH='0';process.env.RUNNER_HOST='github';if(bundle.nonStudentAudioRegistry)fs.writeFileSync(path.join(root,'private/non-student-audio-registry.json'),JSON.stringify(bundle.nonStudentAudioRegistry));
  if(lane==='kids'){const catalog=path.join(root,'migration/kids-barem-20261012/catalog.approved.json');fs.mkdirSync(path.dirname(catalog),{recursive:true});fs.writeFileSync(catalog,JSON.stringify(bundle.barem),{mode:0o600});process.env.MASTER_BAREM_CATALOG=catalog;runTest('kids-barem-recovery-tests.mjs');}
  else{fs.writeFileSync(path.join(root,'shadowing-references.json'),JSON.stringify(applyReferenceOverrides(bundle.references,bundle.referenceOverrides)),{mode:0o600});runTest('shadowing-tests.mjs');}
- const {Google,request}=await import('./google-adapter.mjs');const google=new Google(sa),model=lane==='kids'?config.kids.model:config.shadowing.model;
+ const {Google,request,pause}=await import('./google-adapter.mjs');const google=new Google(sa),model=lane==='kids'?config.kids.model:config.shadowing.model;
  if(mode==='grade'){const {repairLegacyShadowZeros}=await import('./shadow-legacy-zero-repair.mjs');try{repairLegacyShadowZeros(google,config);}catch(e){if(e.message==='SHARED_RUNNER_BUSY')throw e;console.log(JSON.stringify({event:'LEGACY_ZERO_REPAIR_DEFERRED',providerCalls:0}));}}
  if(mode==='grade'&&bundle.unassessableRepairIds?.length){const {repairUnassessableShadow}=await import('./shadow-unassessable-repair.mjs');console.log(JSON.stringify({event:'UNASSESSABLE_SAVED_REPAIR',...repairUnassessableShadow(google,config,bundle.unassessableRepairIds)}));}
  const metadata=request({url:'https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model),headers:{'x-goog-api-key':key},timeoutMs:30000});if(metadata.getResponseCode()!==200)throw Error('MODEL_PREFLIGHT_FAILED');
@@ -49,7 +50,7 @@ async function main(){
   const {runShadowing}=await import('./shadowing-runner.mjs'),{buildContext}=await import('./grader_runner.mjs');const media=buildContext(config.clusters[0]),deadline=Date.now()+40*60000;
   do{const r=runShadowing({google,config,key,root,deadline,emit:()=>{},maxJobs:Infinity,maxApiCalls:Infinity,prepareAudio:(job,m,save,end)=>{
    const keyHash=media.hash_(key),model=config.shadowing.model;if(job.keyHash&&job.keyHash!==keyHash){if(job.rawId||job.gradeId)throw Error('SAVED_RESULT_MUST_NOT_BE_REGENERATED');media.bindPoolJob_(job,{keyHash,model});save();}else{job.keyHash=keyHash;job.generationModel=model;}return media.mediaPart_(job,m,save,end);
-  },cleanupAudio:job=>media.cleanupMedia_(job)});finished+=r.finished;requests+=r.paidCalls;if(!r.attempted||!r.paidCalls&&!r.finished)break;}while(Date.now()<deadline-120000);
+  },cleanupAudio:job=>media.cleanupMedia_(job)});finished+=r.finished;requests+=r.paidCalls;if(Number.isFinite(r.nextRetryAt)&&r.nextRetryAt<deadline-120000){while(Date.now()<r.nextRetryAt)pause(Math.min(5000,r.nextRetryAt-Date.now()));}else if(!r.attempted||!r.paidCalls&&!r.finished)break;}while(Date.now()<deadline-120000);
  }
  const report={lane,finished,providerGenerateCalls:requests};console.log(JSON.stringify(report));
  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${lane}: ${finished} results returned; ${requests} provider requests.\n`);

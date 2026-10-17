@@ -1,3 +1,5 @@
+import {createMediaService,firstUniversalPart,downloadWithRetry} from './universal-media.mjs';
+import {installKidsPreprocessing} from './automatic-preprocessing.mjs';
 import {SCREEN_GROUNDING_VERSION} from './screen-grounding.mjs';
 import {extractScreenFrames,screenFramesReady} from './phonics-frame.mjs';
 import {beginSheetBatch,replaySheetBatches} from './kids-sheet-batch.mjs';
@@ -30,6 +32,7 @@ let poolState;
 if(poolWorker){poolState=JSON.parse(fs.readFileSync(process.env.RUNNER_POOL_STATE));if(poolState.session!==process.env.RUNNER_POOL_SESSION)throw Error('POOL_SESSION_INVALID');process.kill(poolState.pid,0);}
 const maxJobs=Number(option('--max-jobs')||Infinity),maxApiCalls=Number(option('--max-api-calls')||Infinity),maxMinutes=Number(option('--max-minutes')||80),until=Date.now()+maxMinutes*60000;
 const ffmpeg=process.env.FFMPEG_PATH||(process.platform==='win32'?path.join(root,'..','ielts-speaking-gemini-20261010','private','runtime','imageio_ffmpeg','binaries','ffmpeg-win-x86_64-v7.1.exe'):'ffmpeg');
+const universalMedia=createMediaService({g:google,root,ffmpeg});
 const emit=x=>{if(x.event==='RUN_COMPLETE')console.log(JSON.stringify({event:x.event,finished:x.finished,paidCalls:x.paidCalls}));};
 let finished=0,paidCalls=0;const outcomes=[];
 const recoveredClusters=new Set(),preparedClusters=new Set(),contexts=new Map(),lastScans=new Map(),referenceUploads=new Map();
@@ -246,12 +249,13 @@ function prepareMedia(c,job,m,save,deadline,originalMedia){
   do{const previous=m.upload?.offset||0,part=originalMedia(job,m,save,deadline);if(part)return part;if(m.upload?.name||!(m.upload?.offset>previous))return null;}while(Date.now()<sliceUntil);
   return null;
  }
+ if(m.id.startsWith('yt_')&&!fs.existsSync(original)){fs.copyFileSync(universalMedia.localFile(m),original);}
  if(file===original&&!fs.existsSync(original)){
   const partial=original+'.part',sliceUntil=Math.min(deadline-45000,Date.now()+60000);let offset=fs.existsSync(partial)?fs.statSync(partial).size:0;
   if(offset>m.size){fs.unlinkSync(partial);offset=0;}
   while(offset<m.size&&Date.now()<sliceUntil){const end=Math.min(m.size-1,offset+8*1024*1024-1);mediaCache.sweep(end-offset+1);emit({event:'MEDIA_DOWNLOAD',jobId:job.id,bytes:m.size,offset});
    const expected='bytes '+offset+'-'+end+'/'+m.size;
-   const r=request({url:'https://www.googleapis.com/drive/v3/files/'+m.id+'?alt=media&supportsAllDrives=true',headers:{Authorization:'Bearer '+google.token(),Range:'bytes='+offset+'-'+end,'Accept-Encoding':'identity'},outputFile:partial,append:offset>0,expectedContentRange:expected,timeoutMs:40000});
+   const r=downloadWithRetry({url:'https://www.googleapis.com/drive/v3/files/'+m.id+'?alt=media&supportsAllDrives=true',headers:{Authorization:'Bearer '+google.token(),Range:'bytes='+offset+'-'+end,'Accept-Encoding':'identity'},outputFile:partial,append:offset>0,expectedContentRange:expected,timeoutMs:40000});
    if(r.getResponseCode()===404||r.getResponseCode()===403)throw Error('PREFLIGHT_FILE_MISSING_OR_INVALID');
    if(r.getResponseCode()!==206||r.getAllHeaders()['content-range']!==expected)throw Error('DRIVE_RANGE_DOWNLOAD_FAILED');
    offset=fs.statSync(partial).size;if(offset!==end+1)throw Error('DRIVE_DOWNLOAD_SIZE_MISMATCH');
@@ -268,10 +272,7 @@ function prepareMedia(c,job,m,save,deadline,originalMedia){
   m.runnerPdfFrame=extractPhonicsFrame({ffmpeg,input:original,output,durationSeconds:duration});save();
  }
  if(audioFirst){
- if(file===original){mediaCache.sweep(Math.min(m.size,256*1024*1024));const extracted=extractStudentAudio({ffmpeg,input:original,audio,flac});file=extracted.file;mime=extracted.mime;m.audioSelection=extracted.selection;}
-  if(file===original){file=audio;mime='audio/mp4';}
-  job.runnerAudioOnly=!needsFrame&&!m.runnerScreenFrames?.length;m.runnerAudio={mime,bytes:fs.statSync(file).size,originalBytes:m.size,copy:mime==='audio/mp4'};
-  mediaCache.dropOriginal(tag);
+  const result=universalMedia.prepare(m,{fileApi:job.media.filter(x=>!x.isReference).length>2}),part=firstUniversalPart(m,result);job.runnerAudioOnly=job.media.filter(x=>!x.isReference).every(x=>!x.runnerPdfFrame&&!x.runnerContextFrames?.length&&!x.runnerScreenFrames?.length);save();return part;
  }
  if(proxyVideo){
   if(!present(proxy)){mediaCache.sweep(Math.min(m.size,256*1024*1024));

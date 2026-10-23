@@ -136,7 +136,7 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
    if(!hasSavedResult(job)&&!hasRequest(job)){
     const result=inspectSubmissionSource({text:job.source.link,service:universalMedia,metadata:id=>g.fileMeta(id)});job.sourceIntake={...result,receivedAt:job.source.time};persist();
     try{if(latestRows(allSource()).get(identity(job.source))?.signature!==job.source.signature)throw Error('SKIPPED_OLD_SUBMISSION');publishSourceStatus(g,binding.sourceId,{...job.source,links:job.source.link,student:job.source.name},result);delete job.sourceStatusWriteError;}catch(e){if(e.message==='SKIPPED_OLD_SUBMISSION')throw e;job.sourceStatusWriteError=true;}
-    if(result.state!=='valid'){job.status='RETRY';job.error='SOURCE_INPUT_'+result.state.toUpperCase();job.nextAt=Date.now()+300000;persist();continue;}
+    if(result.state!=='valid'){job.status='RETRY';job.error='SOURCE_INPUT_'+result.state.toUpperCase();job.nextAt=Date.now()+(result.retryAfterMs||300000);persist();continue;}
    }
    preflight(job);persist();let grade,raw;const documented=references[job.source.code];
    if(!job.rawId&&job.gradeId){job.rawId=job.gradeId;job.sheetTruthGradeRecovery={providerCalls:0,at:new Date().toISOString()};persist();}
@@ -163,7 +163,7 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
   finally{settleSheetTruth({job,resolve:()=>target(job.source).cell,save:persist,emit});deliverBatch(finished);}
  }
  for(const item of load())if(approval.approved.has(item.job.id)&&['RETURNED','SKIPPED_EXISTING_FEEDBACK'].includes(item.job.status)){approval.finish(item.job);save(item.job,item.row);}approval.flush();
- emit({event:'SHADOW_COMPLETE',finished,paidCalls,attempted});return {finished,paidCalls,attempted,nextRetryAt:Math.min(Infinity,...load().map(x=>x.job).filter(j=>j.providerRetryOrigin&&!hasSavedResult(j)&&Number(j.nextAt)>Date.now()).map(j=>Number(j.nextAt)))};
+ emit({event:'SHADOW_COMPLETE',finished,paidCalls,attempted});return {finished,paidCalls,attempted,nextRetryAt:Math.min(Infinity,...load().map(x=>x.job).filter(j=>(j.providerRetryOrigin||process.env.SHEET_TRUTH_SYNC==='true'&&j.sourceIntake?.reason==='DOWNLOAD_IN_PROGRESS')&&!hasSavedResult(j)&&Number(j.nextAt)>Date.now()).map(j=>Number(j.nextAt)))};
  }finally{try{try{destinationBatch?.flush();try{masterSweep?.publish();}catch(e){emit({event:'MASTER_SWEEP_REPORT_ERROR',error:e.message});}}finally{destinationBatch?.close();}}finally{if(lease)lease.release();}}
 }
 function parseRaw(raw){const grade=restoreLegacyPlaceholder(acceptShadowScore((expandShadowCompact(raw)||postprocessShadow(raw,{blockScores:false})),{legacyLedger:!!raw._shadowRequestLedger}));if(typeof grade?.assessable!=='boolean')throw Error('SHADOW_GRADE_INVALID');return grade;}

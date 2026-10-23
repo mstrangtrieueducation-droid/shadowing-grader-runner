@@ -14,6 +14,7 @@ on:
         default: ""
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: shadowing-single-writer
   cancel-in-progress: false
@@ -27,6 +28,9 @@ jobs:
       REPAIR_IDS: ${{ inputs.repair_ids || '' }}
       GRADING_ENABLED: ${{ vars.GRADING_ENABLED }}
       RUNNER_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      RUNNER_GITHUB_TOKEN: ${{ github.token }}
+      GOOGLE_SHEETS_INTERVAL_MS: '3500'
+      GOOGLE_RATE_GATE_FILE: .runtime/google-rate.json
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -38,7 +42,9 @@ jobs:
         if: env.MODE == 'validate'
         run: node run-lane.mjs
       - name: Validate teacher master policy without provider calls
-        run: node master-compact-output-tests.mjs
+        run: |
+          node master-compact-output-tests.mjs
+          node completed-lease-owner-tests.mjs
       - name: Install official media tools
         if: env.MODE != 'validate' && env.MODE != 'repair-scores'
         run: |

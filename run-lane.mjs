@@ -8,6 +8,7 @@ async function main(){
  runTest('ielts-address-policy-tests.mjs');
  runTest('shadow-receipt-feedback-tests.mjs');
  runTest('ielts-address-saved-repair-tests.mjs');
+ runTest('submission-source-tests.mjs');
  const mode=process.env.MODE||'audit';if(!['validate','audit','grade','repair-scores'].includes(mode))throw Error('MODE_INVALID');
  const publicTests=["shadowing-fixed-ledger-tests.mjs", "shadowing-unblock-tests.mjs","shadowing-coverage-tests.mjs"];runTest('automatic-authorization-tests.mjs');runTest('export-safeguards.mjs');for(const n of publicTests)runTest(n);
  runTest('master-cross-class-sweep-tests.mjs');runTest('master-first-snapshot-tests.mjs');runTest('student-speech-evidence-tests.mjs');runTest('master-submission-scope-tests.mjs');runTest('saved-speaking-consistency-tests.mjs');runTest('shadow-parent-prose-tests.mjs');runTest('saved-json-whitespace-tests.mjs');

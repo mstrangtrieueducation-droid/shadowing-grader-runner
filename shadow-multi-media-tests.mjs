@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';import vm from 'node:vm';
+const source=fs.readFileSync(new URL('./shadowing-runner.mjs',import.meta.url),'utf8');
+const start=source.indexOf(' const preflight=job=>{'),end=source.indexOf(' const guides=',start);
+assert(start>0&&end>start);
+const files=['synthetic_first_video_123','synthetic_second_video_123'];let ids=files.slice();
+const submission={signature:'synthetic-signature',link:'synthetic-folder'},metas=new Map(files.map((id,i)=>[id,{id,name:'Video '+(i+1)+'.mp4',mimeType:'video/mp4',size:String((130+i*200)*1024*1024),modifiedTime:'2026-10-01T00:00:00Z'}]));
+const context=vm.createContext({latestRows:()=>new Map([['same-native-submission',submission]]),allSource:()=>[],identity:()=> 'same-native-submission',target:()=>({address:'D9',cell:{}}),universalMedia:{ids:()=>ids},g:{refreshFileMetadata:()=>{},fileMeta:id=>metas.get(id)},hasRequest:j=>Number(j.generateRequests)>0});
+vm.runInContext(source.slice(start,end)+'\nglobalThis.testPreflight=preflight;',context);
+const job={source:submission,status:'READY'};context.testPreflight(job);
+assert.deepEqual(Array.from(job.media,m=>m.id),files);assert.equal(job.media.length,2);assert(job.media.every(m=>m.size>100*1024*1024));
+job.media[0].audioPayloadProof={sha256:'synthetic-proof'};context.testPreflight(job);assert.equal(job.media[0].audioPayloadProof.sha256,'synthetic-proof','unchanged fresh metadata preserves prepared proofs');
+job.generateRequests=1;ids=files.slice(0,1);assert.throws(()=>context.testPreflight(job),/SHADOW_SOURCE_MEDIA_CHANGED/);
+assert.equal(job.media.length,2,'paid inventory is never replaced');
+console.log('PASS actual Shadow preflight accepts all folder files and protects changed paid inventory; 0 provider calls.');

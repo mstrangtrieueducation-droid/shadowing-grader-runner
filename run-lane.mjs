@@ -1,3 +1,4 @@
+import {SERVICE_MS} from './workload-lanes.mjs';
 import './hosted-bootstrap.mjs';
 import {applyReferenceOverrides} from './shadow-prerequisite-recovery.mjs';
 import fs from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';import {createDecipheriv} from 'node:crypto';import {gunzipSync} from 'node:zlib';import {spawnSync} from 'node:child_process';
@@ -5,7 +6,7 @@ const root=path.dirname(fileURLToPath(import.meta.url)),lane='shadowing',reposit
 const required=n=>{const v=process.env[n]?.trim();if(!v)throw Error('MISSING_'+n);return v;};
 const runTest=name=>{const r=spawnSync(process.execPath,[name],{cwd:root,env:{...process.env,NATIVE_YOUTUBE_INPUT:'false',SHEET_TRUTH_SYNC:'false'},encoding:'utf8',windowsHide:true,maxBuffer:10*1024*1024});if(r.status){fs.mkdirSync(path.join(root,'private'),{recursive:true});fs.writeFileSync(path.join(root,'private','test-failure.txt'),r.stdout+'\n'+r.stderr);throw Error('SAFEGUARD_TEST_FAILED');}console.log(JSON.stringify({test:name,passed:true,providerCalls:0}));};
 async function main(){
- runTest('audio-completeness-tests.mjs');
+ runTest('worker-ownership-tests.mjs');runTest('lane-pool-tests.mjs');runTest('workload-lanes-tests.mjs');runTest('audio-completeness-tests.mjs');
  runTest('sheet-truth-merge-chunk-tests.mjs');
  runTest('ielts-address-policy-tests.mjs');
  runTest('shadow-receipt-feedback-tests.mjs');
@@ -51,10 +52,9 @@ async function main(){
   if(result.status!==0){fs.writeFileSync(path.join(root,'private','run-failure.txt'),result.stdout+'\n'+result.stderr);throw Error('KIDS_RUN_FAILED');}
   const counter=JSON.parse(fs.readFileSync(path.join(root,'private/last-run.json'),'utf8'));finished=counter.finished;requests=counter.paidCalls;
  }else{
-  const {runShadowing}=await import('./shadowing-runner.mjs'),{buildContext}=await import('./grader_runner.mjs');const media=buildContext(config.clusters[0]),deadline=Date.now()+40*60000;
-  do{const r=runShadowing({google,config,key,root,deadline,emit:()=>{},maxJobs:Infinity,maxApiCalls:Infinity,prepareAudio:(job,m,save,end)=>{
-   const keyHash=media.hash_(key),model=config.shadowing.model;if(job.keyHash&&job.keyHash!==keyHash){if(job.rawId||job.gradeId)throw Error('SAVED_RESULT_MUST_NOT_BE_REGENERATED');media.bindPoolJob_(job,{keyHash,model});save();}else{job.keyHash=keyHash;job.generationModel=model;}return media.mediaPart_(job,m,save,end);
-  },cleanupAudio:job=>media.cleanupMedia_(job)});finished+=r.finished;requests+=r.paidCalls;if(Number.isFinite(r.nextRetryAt)&&r.nextRetryAt<deadline-120000){while(Date.now()<r.nextRetryAt)pause(Math.min(5000,r.nextRetryAt-Date.now()));}else if(!r.attempted||!r.paidCalls&&!r.finished)break;}while(Date.now()<deadline-120000);
+  const {runShadowing}=await import('./shadowing-runner.mjs'),{runLanePool}=await import('./lane-pool.mjs');
+  const deadline=Date.now()+SERVICE_MS;
+  const result=await runLanePool({lane,root,google,config,key,deadline,plan:()=>{google.invalidate();return runShadowing({google,config,key,root,deadline,emit:()=>{},planOnly:true,maxJobs:0,maxApiCalls:0});}});finished=result.finished;requests=result.paidCalls;
  }
  const report={lane,finished,providerGenerateCalls:requests};console.log(JSON.stringify(report));
  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${lane}: ${finished} results returned; ${requests} provider requests.\n`);

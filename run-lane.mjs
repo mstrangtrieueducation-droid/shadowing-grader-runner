@@ -6,7 +6,7 @@ const root=path.dirname(fileURLToPath(import.meta.url)),lane='shadowing',reposit
 const required=n=>{const v=process.env[n]?.trim();if(!v)throw Error('MISSING_'+n);return v;};
 const runTest=name=>{const r=spawnSync(process.execPath,[name],{cwd:root,env:{...process.env,NATIVE_YOUTUBE_INPUT:'false',SHEET_TRUTH_SYNC:'false'},encoding:'utf8',windowsHide:true,maxBuffer:10*1024*1024});if(r.status){fs.mkdirSync(path.join(root,'private'),{recursive:true});fs.writeFileSync(path.join(root,'private','test-failure.txt'),r.stdout+'\n'+r.stderr);throw Error('SAFEGUARD_TEST_FAILED');}console.log(JSON.stringify({test:name,passed:true,providerCalls:0}));};
 async function main(){
- runTest('worker-ownership-tests.mjs');runTest('lane-pool-tests.mjs');runTest('workload-lanes-tests.mjs');runTest('audio-completeness-tests.mjs');
+ runTest('encrypted-media-cache-tests.mjs');runTest('cooperative-upgrade-tests.mjs');runTest('worker-ownership-tests.mjs');runTest('lane-pool-tests.mjs');runTest('workload-lanes-tests.mjs');runTest('audio-completeness-tests.mjs');
  runTest('sheet-truth-merge-chunk-tests.mjs');
  runTest('ielts-address-policy-tests.mjs');
  runTest('shadow-receipt-feedback-tests.mjs');
@@ -54,7 +54,7 @@ async function main(){
  }else{
   const {runShadowing}=await import('./shadowing-runner.mjs'),{runLanePool}=await import('./lane-pool.mjs');
   const deadline=Date.now()+SERVICE_MS;
-  const result=await runLanePool({lane,root,google,config,key,deadline,plan:()=>{google.invalidate();return runShadowing({google,config,key,root,deadline,emit:()=>{},planOnly:true,maxJobs:0,maxApiCalls:0});}});finished=result.finished;requests=result.paidCalls;
+  const result=await runLanePool({lane,root,google,config,key,deadline,plan:()=>{google.invalidate();const current=runShadowing({google,config,key,root,deadline,emit:()=>{},planOnly:true,resumeExisting:true,maxJobs:0,maxApiCalls:0});return current.work?.length?current:runShadowing({google,config,key,root,deadline,emit:()=>{},planOnly:true,maxJobs:0,maxApiCalls:0});}});finished=result.finished;requests=result.paidCalls;
  }
  const report={lane,finished,providerGenerateCalls:requests};console.log(JSON.stringify(report));
  if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${lane}: ${finished} results returned; ${requests} provider requests.\n`);

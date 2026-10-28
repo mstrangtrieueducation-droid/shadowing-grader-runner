@@ -149,7 +149,8 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  if(!delegated&&!resumeExisting)emit({event:'SHADOW_PREPROCESS_RECOVERY',...resumeUncalledPreprocessing(load(),{isLatest:j=>latest.get(identity(j.source))?.signature===j.source.signature,save})});
  const approval=nativeApprovalSession(g,config,binding,tab,load(),save,delegated?onlySignature:undefined);
  const poolQueue=()=>load().filter(x=>(!masterSweep||masterSweep.allowsJob(x.job))&&masterScopeAllowsJob(x.job)&&approval.approved.has(x.job.id)&&(!onlySignature||(Array.isArray(onlySignature)?onlySignature.includes(x.job.id):x.job.id===onlySignature))&&['QUEUED','READY','WAITING_MEDIA','RETRY','GENERATED','GENERATING'].includes(x.job.status));
- if(planOnly)return {finished,paidCalls,work:poolQueue()};
+ const describePool=()=>poolQueue().map(item=>{const job={...item.job};try{const d=target(job.source,true);job._runtimeRowKey=[d.spreadsheetId,d.sheetId,d.row].join('|');}catch{}return {row:item.row,job};});
+ if(planOnly)return {finished,paidCalls,work:describePool()};
  const queue=poolQueue().filter(x=>!(x.job.nextAt>Date.now())).sort((a,b)=>Number(!!b.job.prerequisiteRecoveryVersion)-Number(!!a.job.prerequisiteRecoveryVersion)||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Number(!!b.job.generationAttempt&&!b.job.rawId&&b.job.generationAttempt.calls===0)-Number(!!a.job.generationAttempt&&!a.job.rawId&&a.job.generationAttempt.calls===0)||Number(cachedAudio(b.job))-Number(cachedAudio(a.job))||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Date.parse(b.job.source.time)-Date.parse(a.job.source.time));
  const deliverBatch=batchDeliveryCheckpoint(destinationBatch,1,emit);
  for(const item of queue){if(Date.now()>deadline-90000||finished>=maxJobs||paidCalls>=maxApiCalls||attempted>=Math.max(6,maxJobs*3))break;attempted++;const {job,row}=item;const persist=()=>save(job,row);emit({event:'SHADOW_JOB_STARTED',student:job.source.name,className:job.source.className,code:job.source.code});
@@ -192,7 +193,7 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
   finally{settleSheetTruth({job,resolve:()=>target(job.source).cell,save:persist,emit});deliverBatch(finished);}
  }
  for(const item of load())if((!delegated||item.job.id===onlySignature)&&approval.approved.has(item.job.id)&&['RETURNED','SKIPPED_EXISTING_FEEDBACK'].includes(item.job.status)){approval.finish(item.job);save(item.job,item.row);}approval.flush();
- emit({event:'SHADOW_COMPLETE',finished,paidCalls,attempted});return {finished,paidCalls,attempted,work:poolQueue(),nextRetryAt:Math.min(Infinity,...load().map(x=>x.job).filter(j=>(j.providerRetryOrigin||process.env.SHEET_TRUTH_SYNC==='true'&&j.sourceIntake?.reason==='DOWNLOAD_IN_PROGRESS')&&!hasSavedResult(j)&&Number(j.nextAt)>Date.now()).map(j=>Number(j.nextAt)))};
+ emit({event:'SHADOW_COMPLETE',finished,paidCalls,attempted});return {finished,paidCalls,attempted,work:describePool(),nextRetryAt:Math.min(Infinity,...load().map(x=>x.job).filter(j=>(j.providerRetryOrigin||process.env.SHEET_TRUTH_SYNC==='true'&&j.sourceIntake?.reason==='DOWNLOAD_IN_PROGRESS')&&!hasSavedResult(j)&&Number(j.nextAt)>Date.now()).map(j=>Number(j.nextAt)))};
  }finally{try{try{destinationBatch?.flush();try{masterSweep?.publish();}catch(e){emit({event:'MASTER_SWEEP_REPORT_ERROR',error:e.message});}}finally{destinationBatch?.close();}}finally{if(lease)lease.release();}}
 }
 function parseRaw(raw){const grade=restoreLegacyPlaceholder(acceptShadowScore((expandShadowCompact(raw)||postprocessShadow(raw,{blockScores:false})),{legacyLedger:!!raw._shadowRequestLedger}));if(typeof grade?.assessable!=='boolean')throw Error('SHADOW_GRADE_INVALID');return grade;}

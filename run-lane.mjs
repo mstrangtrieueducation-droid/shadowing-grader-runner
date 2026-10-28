@@ -5,6 +5,7 @@ const root=path.dirname(fileURLToPath(import.meta.url)),lane='shadowing',reposit
 const required=n=>{const v=process.env[n]?.trim();if(!v)throw Error('MISSING_'+n);return v;};
 const runTest=name=>{const r=spawnSync(process.execPath,[name],{cwd:root,env:{...process.env,NATIVE_YOUTUBE_INPUT:'false',SHEET_TRUTH_SYNC:'false'},encoding:'utf8',windowsHide:true,maxBuffer:10*1024*1024});if(r.status){fs.mkdirSync(path.join(root,'private'),{recursive:true});fs.writeFileSync(path.join(root,'private','test-failure.txt'),r.stdout+'\n'+r.stderr);throw Error('SAFEGUARD_TEST_FAILED');}console.log(JSON.stringify({test:name,passed:true,providerCalls:0}));};
 async function main(){
+ runTest('audio-completeness-tests.mjs');
  runTest('sheet-truth-merge-chunk-tests.mjs');
  runTest('ielts-address-policy-tests.mjs');
  runTest('shadow-receipt-feedback-tests.mjs');

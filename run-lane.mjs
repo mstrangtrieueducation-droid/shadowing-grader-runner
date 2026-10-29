@@ -17,7 +17,7 @@ async function main(){
  runTest('master-cross-class-sweep-tests.mjs');runTest('master-first-snapshot-tests.mjs');runTest('student-speech-evidence-tests.mjs');runTest('master-submission-scope-tests.mjs');runTest('saved-speaking-consistency-tests.mjs');runTest('shadow-parent-prose-tests.mjs');runTest('saved-json-whitespace-tests.mjs');
  runTest('shadow-score-passthrough-tests.mjs');runTest('structured-shadow-coverage-tests.mjs');runTest('saved-json-section-objects-tests.mjs');runTest('batch-delivery-checkpoint-tests.mjs');runTest('shadow-prerequisite-recovery-tests.mjs');runTest('shadow-audio-recovery-tests.mjs');
  runTest('shadow-legacy-placeholder-tests.mjs');
- runTest('continuous-dispatcher-tests.mjs');
+ runTest('continuous-dispatcher-tests.mjs');runTest('queue-isolation-tests.mjs');
  runTest('universal-media-tests.mjs');runTest('core-media-resolver-tests.mjs');runTest('shadow-multi-media-tests.mjs');runTest('media-source-notice-recovery-tests.mjs');
  runTest('provider-retry-policy-tests.mjs');
  runTest('screen-grounding-tests.mjs');

@@ -1,3 +1,4 @@
+import {isolateNativeJobs} from './queue-isolation.mjs';
 import {assertDelegatedWork} from './workload-lanes.mjs';
 import {createCurrentRosterCheck} from './current-roster-policy.mjs';
 import {settleSheetTruth} from './sheet-truth-sync.mjs';
@@ -148,7 +149,8 @@ export function runShadowing({google:g,config,key,root,deadline,emit,audit=false
  const cachedAudio=j=>{const m=j.media?.[0];if(!m)return false;const tag=m.id+'-'+createHash('sha256').update(String(m.modified)).digest('hex').slice(0,10);return ['.m4a','.flac','.shadow.mp3'].some(ext=>fs.existsSync(path.join(root,'private','cache',tag+ext)));};
  if(!delegated&&!resumeExisting)emit({event:'SHADOW_PREPROCESS_RECOVERY',...resumeUncalledPreprocessing(load(),{isLatest:j=>latest.get(identity(j.source))?.signature===j.source.signature,save})});
  const approval=nativeApprovalSession(g,config,binding,tab,load(),save,delegated?onlySignature:undefined);
- const poolQueue=()=>load().filter(x=>(!masterSweep||masterSweep.allowsJob(x.job))&&masterScopeAllowsJob(x.job)&&approval.approved.has(x.job.id)&&(!onlySignature||(Array.isArray(onlySignature)?onlySignature.includes(x.job.id):x.job.id===onlySignature))&&['QUEUED','READY','WAITING_MEDIA','RETRY','GENERATED','GENERATING'].includes(x.job.status));
+ if(!audit&&!delegated)isolateNativeJobs(load(),save);
+ const poolQueue=()=>load().filter(x=>!x.job.queueQuarantine&&(!masterSweep||masterSweep.allowsJob(x.job))&&masterScopeAllowsJob(x.job)&&approval.approved.has(x.job.id)&&(!onlySignature||(Array.isArray(onlySignature)?onlySignature.includes(x.job.id):x.job.id===onlySignature))&&['QUEUED','READY','WAITING_MEDIA','RETRY','GENERATED','GENERATING'].includes(x.job.status));
  const describePool=()=>poolQueue().map(item=>{const job={...item.job};try{const d=target(job.source,true);job._runtimeRowKey=[d.spreadsheetId,d.sheetId,d.row].join('|');}catch{}return {row:item.row,job};});
  if(planOnly)return {finished,paidCalls,work:describePool()};
  const queue=poolQueue().filter(x=>!(x.job.nextAt>Date.now())).sort((a,b)=>Number(!!b.job.prerequisiteRecoveryVersion)-Number(!!a.job.prerequisiteRecoveryVersion)||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Number(!!b.job.generationAttempt&&!b.job.rawId&&b.job.generationAttempt.calls===0)-Number(!!a.job.generationAttempt&&!a.job.rawId&&a.job.generationAttempt.calls===0)||Number(cachedAudio(b.job))-Number(cachedAudio(a.job))||Number(!!b.job.rawId)-Number(!!a.job.rawId)||Date.parse(b.job.source.time)-Date.parse(a.job.source.time));

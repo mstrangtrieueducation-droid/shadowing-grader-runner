@@ -1,3 +1,4 @@
+import {scoredAssessment} from './scored-assessment-policy.mjs';
 import {phonicsSequenceColumn} from './phonics-destination-repair.mjs';
 import {isPhonics,PHONICS_VERSION,PHONICS_LABELS,PHONICS_PROMPT,phonicsText,phonicsRich,sectionsFromText} from './phonics-template.mjs';
 import {fullFeedback,networkRetry} from './kids-fault-tolerance.mjs';
@@ -108,12 +109,8 @@ export function installContentRouting(c,catalog,{refresh,lock,emit=()=>{}}){
   if(e.message==='FULL_FEEDBACK_READY'){limitedFeedback(j,row,e.message);return;}
   if(e.message==='PREFLIGHT_EXISTING_FEEDBACK'){stop(j,row,'SKIPPED_ALREADY_GRADED');return;}
   if(e.recordingIssue?.category==='wrong_assignment'&&j.rawId){
-   const g=draft(j),s=g.submissionCheck||{},actual=localLessonMatch(index,g.studentTranscript||[s.observedTask,s.basis].join(' '));
-   if(actual){const route={...structuredClone(actual.route),code:actual.code,className:j.receipt.className,sourceTab:j.receipt.sourceTab};
-    if(occupied(destination(j,route).cell)){feedback(j,row,RESUBMIT_OLD,j.formRoute||j.route);return;}
-    j.contentRouting={...j.contentRouting,version:ROUTING_VERSION,actualCode:actual.code,method:'LOCAL_KEYWORDS_FROM_SINGLE_RESPONSE'};j.route=route;
-   }
-   limitedFeedback(j,row,actual?'WRONG_ASSIGNMENT_LOCAL_MATCH':'WRONG_ASSIGNMENT_UNCLEAR');return;
+   if(scoredAssessment(draft(j))){limitedFeedback(j,row,'RETURNED_SCORED_ASSESSMENT');return;}
+   return handle(j,row,e);
   }
   if(j.rawId&&/^(GRADE_|MODEL_)/.test(e.message)&&!/^GRADE_SUBMISSION_RESUBMIT$/.test(e.message)){limitedFeedback(j,row,e.message);return;}
   if(e.message==='AUDIO_NO_STREAM'){feedback(j,row,RESUBMIT_AUDIO);return;}
